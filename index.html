@@ -285,7 +285,7 @@
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                       <XAxis dataKey="label" stroke="#000" tick={{fill: 'currentColor'}} className="text-black dark:text-gray-300" />
                       <YAxis stroke="#000" tick={{fill: 'currentColor'}} className="text-black dark:text-gray-300" tickFormatter={(v) => `R$${v}`} />
-                      <Tooltip formatter={(v) => `R$ ${v.toFixed(2)}`} contentStyle={{backgroundColor: '#374151', color: '#fff', border: 'none'}} />
+                      <Tooltip formatter={(v) => `R$ ${v.toFixed(2)}`} contentStyle={{backgroundColor: '#000000', color: '#fff', border: 'none'}} />
                       <Legend />
                       <Bar dataKey="income" fill="#22c55e" name="Receitas" />
                       <Bar dataKey="expenses" fill="#ef4444" name="Despesas" />
@@ -301,7 +301,7 @@
                       <Pie data={pieChartData} cx="50%" cy="50%" outerRadius={80} fill="#8884d8" dataKey="value" nameKey="name">
                         {pieChartData.map((e, i) => <Cell key={`cell-${i}`} fill={COLORS[i % COLORS.length]} />)}
                       </Pie>
-                      <Tooltip formatter={(v) => `R$ ${v.toFixed(2)}`} contentStyle={{backgroundColor: '#374151', color: '#fff', border: 'none'}} />
+                      <Tooltip formatter={(v) => `R$ ${v.toFixed(2)}`} contentStyle={{backgroundColor: '#DDDDDD', color: '#fff', border: 'none'}} />
                       <Legend />
                     </PieChart>
                   </ResponsiveContainer>
@@ -466,6 +466,7 @@
         const viewTitle = {dashboard: 'Painel', income: 'Receitas', expenses: 'Despesas'}[currentView];
 
         return (
+
           <div className="flex h-screen bg-gray-100 dark:bg-gray-900 text-black dark:text-gray-100">
             <Sidebar currentView={currentView} setCurrentView={setCurrentView} />
             <div className="flex-1 flex flex-col overflow-hidden relative">
