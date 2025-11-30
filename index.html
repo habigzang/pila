@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Controle de Ganhos</title>
+    
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#1f2937" />
+    
+    <!-- Fontes -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Bibliotecas Essenciais (Ordem Importa!) -->
+    
+    <!-- 1. Prop Types (Dependência crítica para Recharts UMD) -->
+    <script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+    
+    <!-- 2. React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- 3. Recharts (Gráficos) -->
+    <script crossorigin src="https://unpkg.com/recharts@2.10.3/umd/Recharts.js"></script>
+    
+    <!-- 4. Babel (Tradutor) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- 5. Tailwind CSS (Estilos) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'media', 
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+            },
+            padding: {
+                'safe': 'env(safe-area-inset-bottom)',
+            }
+          },
+        },
+      }
+    </script>
+    
+    <style>
+      body {
+        font-family: 'Inter', sans-serif;
+        -webkit-tap-highlight-color: transparent;
+      }
+      html, body, #root {
+          height: 100%;
+          overscroll-behavior-y: none;
+      }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "recharts": "https://aistudiocdn.com/recharts@^3.5.1",
+    "vite": "https://aistudiocdn.com/vite@^7.2.4",
+    "@vitejs/plugin-react-swc": "https://aistudiocdn.com/@vitejs/plugin-react-swc@^4.2.2"
+  }
+}
+</script>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-black dark:text-gray-100">
+    <div id="root" class="h-full"></div>
+
+    <!-- CÓDIGO DO APLICATIVO -->
+    <script type="text/babel" data-presets="react,typescript">
+      const { useState, useEffect, useMemo } = React;
+      
+      // Acesso seguro ao Recharts global
+      const RechartsLib = window.Recharts || {};
+      const { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } = RechartsLib;
+
+      // Componente de erro simples caso o Recharts falhe
+      const ChartError = () => <div className="p-4 text-red-500 text-center text-sm">Erro ao carregar gráficos. Verifique a conexão.</div>;
+
+      // --- CONSTANTES ---
+      const INCOME_SOURCES = ['Uber', '99'];
+      const EXPENSE_CATEGORIES = [
+        'Combustível', 'Manutenção', 'Seguro', 'Lava-rápido', 
+        'Suprimentos', 'Plano de Celular', 'Financiamento do Carro', 
+        'Pedágios', 'Outro'
+      ];
+      const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658', '#d0ed57', '#a4de6c'];
+
+      // --- ÍCONES ---
+      const ChartPieIcon = (props) => (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6a7.5 7.5 0 107.5 7.5h-7.5V6z" /><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0013.5 3v7.5z" /></svg>
+      );
+      const BanknotesIcon = (props) => (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+      );
+      const CreditCardIcon = (props) => (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 21z" /></svg>
+      );
+      const PlusIcon = (props) => (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+      );
+      const PencilIcon = (props) => (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125" /></svg>
+      );
+      const TrashIcon = (props) => (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.134-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.067-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+      );
+      const CarIcon = (props) => (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.125-.504 1.125-1.125V14.25m-17.25 4.5v-1.875a3.375 3.375 0 013.375-3.375h9.75a3.375 3.375 0 013.375 3.375v1.875m-17.25 4.5h16.5M6 13.5v-1.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75v1.5m6 0v-1.5a.75.75 0 01.75-.75h3a.75.75 0 01.75.75v1.5m-12-6.375c.621 0 1.125-.504 1.125-1.125V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875v1.125c0 .621.504 1.125 1.125 1.125h1.875z" /></svg>
+      );
+      const ScaleIcon = (props) => (
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v17.25m0 0c-1.472 0-2.882.265-4.185.75M12 20.25c1.472 0 2.882.265 4.185.75M18.75 4.97A48.416 48.416 0 0012 4.5c-2.291 0-4.545.16-6.75.47m13.5 0c1.01.143 2.01.317 3 .52m-3-.52l2.62 10.726c.122.499-.106 1.028-.589 1.202a5.988 5.988 0 01-2.153.24c-1.036 0-2.06-.24-3.045-.721l-2.62-1.073M5.25 4.97m5.941 11.235a5.988 5.988 0 00-2.153.24c-1.036 0-2.06-.24-3.045-.721l-2.62-1.072m2.62 10.726c-.122.499.106 1.028.589 1.202a5.989 5.989 0 002.153.24c1.036 0 2.06-.24 3.045-.721L11.19 16.205" /></svg>
+      );
+
+      // --- HOOKS ---
+      function useLocalStorage(key, initialValue) {
+        const [storedValue, setStoredValue] = useState(() => {
+          try {
+            const item = window.localStorage.getItem(key);
+            return item ? JSON.parse(item) : initialValue;
+          } catch (error) {
+            console.error(error);
+            return initialValue;
+          }
+        });
+        useEffect(() => {
+          try {
+            const valueToStore = typeof storedValue === 'function' ? storedValue(storedValue) : storedValue;
+            window.localStorage.setItem(key, JSON.stringify(valueToStore));
+          } catch (error) {
+            console.error(error);
+          }
+        }, [key, storedValue]);
+        return [storedValue, setStoredValue];
+      }
+
+      // --- COMPONENTES ---
+
+      const SummaryCard = ({ title, value, icon }) => {
+        const isNegative = value < 0;
+        const formattedValue = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+        const valueColor = title === 'Receita Total' ? 'text-green-600' :
+                           title === 'Despesa Total' ? 'text-red-600' :
+                           isNegative ? 'text-red-600' : 'text-blue-600';
+        return (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 flex items-center">
+            <div className="bg-gray-100 dark:bg-gray-700 rounded-full p-3 mr-4">{icon}</div>
+            <div>
+              <p className="text-sm font-medium text-black dark:text-gray-200">{title}</p>
+              <p className={`text-2xl font-semibold ${valueColor}`}>{formattedValue}</p>
+            </div>
+          </div>
+        );
+      };
+
+      const Sidebar = ({ currentView, setCurrentView }) => {
+        const NavItem = ({ view, icon, label }) => {
+          const isActive = currentView === view;
+          return (
+            <button
+              onClick={() => setCurrentView(view)}
+              className={`flex items-center w-full px-4 py-3 text-sm font-medium transition-colors duration-150 ${
+                isActive ? 'bg-blue-600 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+              } rounded-lg`}
+            >
+              {icon}
+              <span className="ml-4">{label}</span>
+            </button>
+          );
+        };
+        return (
+          <div className="hidden md:flex flex-col w-64 bg-gray-800 text-white p-4 h-full">
+            <div className="flex items-center mb-8">
+              <CarIcon className="w-8 h-8 text-blue-400" />
+              <h1 className="ml-3 text-xl font-bold">Controle</h1>
+            </div>
+            <nav className="flex-1 space-y-2">
+              <NavItem view="dashboard" icon={<ChartPieIcon className="w-6 h-6" />} label="Painel" />
+              <NavItem view="income" icon={<BanknotesIcon className="w-6 h-6" />} label="Receitas" />
+              <NavItem view="expenses" icon={<CreditCardIcon className="w-6 h-6" />} label="Despesas" />
+            </nav>
+          </div>
+        );
+      };
+
+      const BottomNav = ({ currentView, setCurrentView }) => {
+        const BottomNavItem = ({ view, icon, label }) => {
+          const isActive = currentView === view;
+          return (
+            <button
+              onClick={() => setCurrentView(view)}
+              className={`flex flex-col items-center justify-center w-full py-2 transition-colors duration-150 ${
+                isActive ? 'text-blue-600 dark:text-blue-400' : 'text-black dark:text-gray-400'
+              }`}
+            >
+              <div className={`w-6 h-6 ${isActive ? 'text-blue-600 dark:text-blue-400' : ''}`}>{icon}</div>
+              <span className="text-xs mt-1 font-medium">{label}</span>
+            </button>
+          );
+        };
+        return (
+          <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 pb-[env(safe-area-inset-bottom)] z-40">
+            <div className="flex justify-around items-center h-16">
+              <BottomNavItem view="dashboard" currentView={currentView} setCurrentView={setCurrentView} icon={<ChartPieIcon />} label="Painel" />
+              <BottomNavItem view="income" currentView={currentView} setCurrentView={setCurrentView} icon={<BanknotesIcon />} label="Receitas" />
+              <BottomNavItem view="expenses" currentView={currentView} setCurrentView={setCurrentView} icon={<CreditCardIcon />} label="Despesas" />
+            </div>
+          </div>
+        );
+      };
+
+      const Header = ({ title, onAddIncome, onAddExpense, platformFilter, onPlatformFilterChange, startDate, onStartDateChange, endDate, onEndDateChange, onClearFilters }) => (
+        <header className="bg-white dark:bg-gray-800 shadow-md p-4 space-y-4 md:space-y-0 md:flex md:justify-between md:items-center">
+          <h2 className="text-2xl font-semibold text-black dark:text-white flex-shrink-0">{title}</h2>
+          <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-4 md:space-y-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <select value={platformFilter} onChange={(e) => onPlatformFilterChange(e.target.value)} className="text-sm border-gray-300 rounded-md bg-white text-black dark:bg-gray-700 dark:text-white focus:ring-blue-500">
+                <option value="all">Todas</option>
+                <option value="Uber">Uber</option>
+                <option value="99">99</option>
+              </select>
+              <input type="date" value={startDate} onChange={(e) => onStartDateChange(e.target.value)} className="text-sm border-gray-300 rounded-md bg-white text-black dark:bg-gray-700 dark:text-white" />
+              <input type="date" value={endDate} onChange={(e) => onEndDateChange(e.target.value)} className="text-sm border-gray-300 rounded-md bg-white text-black dark:bg-gray-700 dark:text-white" />
+              <button onClick={onClearFilters} className="px-3 py-2 text-sm font-medium text-black bg-gray-200 rounded-md hover:bg-gray-300 dark:bg-gray-600 dark:text-white">Limpar</button>
+            </div>
+            <div className="flex items-center space-x-2">
+              <button onClick={onAddIncome} className="flex-1 flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"><PlusIcon className="w-5 h-5 mr-1" /> Receita</button>
+              <button onClick={onAddExpense} className="flex-1 flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"><PlusIcon className="w-5 h-5 mr-1" /> Despesa</button>
+            </div>
+          </div>
+        </header>
+      );
+
+      const Dashboard = ({ transactions }) => {
+        const { totalIncome, totalExpenses, netProfit, monthlyData, pieChartData } = useMemo(() => {
+            let tIncome = 0;
+            let tExpenses = 0;
+            const expenseMap = new Map();
+            const monthMap = new Map();
+
+            transactions.forEach(t => {
+                if (t.type === 'income') {
+                    tIncome += t.amount;
+                } else {
+                    tExpenses += t.amount;
+                    expenseMap.set(t.category, (expenseMap.get(t.category) || 0) + t.amount);
+                }
+                const date = new Date(t.date);
+                const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                
+                const mData = monthMap.get(monthKey) || { income: 0, expenses: 0, sortDate: date.getTime(), label: date.toLocaleString('pt-BR', { month: 'short', year: '2-digit' }) };
+                if (t.type === 'income') mData.income += t.amount;
+                else mData.expenses += t.amount;
+                monthMap.set(monthKey, mData);
+            });
+
+            const mDataArray = Array.from(monthMap.values()).sort((a, b) => a.sortDate - b.sortDate);
+            const pDataArray = Array.from(expenseMap.entries()).map(([name, value]) => ({ name, value }));
+
+            return { totalIncome: tIncome, totalExpenses: tExpenses, netProfit: tIncome - tExpenses, monthlyData: mDataArray, pieChartData: pDataArray };
+        }, [transactions]);
+
+        const hasCharts = window.Recharts;
+
+        return (
+          <div className="space-y-6 pb-20">
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
+              <SummaryCard title="Receita Total" value={totalIncome} icon={<BanknotesIcon className="w-8 h-8 text-green-500" />} />
+              <SummaryCard title="Despesa Total" value={totalExpenses} icon={<CreditCardIcon className="w-8 h-8 text-red-500" />} />
+              <SummaryCard title="Lucro Líquido" value={netProfit} icon={<ScaleIcon className="w-8 h-8 text-blue-500" />} />
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+              <div className="lg:col-span-3 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+                <h3 className="text-lg font-semibold mb-4 text-black dark:text-white">Receitas vs Despesas</h3>
+                {!hasCharts ? <ChartError /> : monthlyData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={monthlyData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis dataKey="label" stroke="#000" tick={{fill: 'currentColor'}} className="text-black dark:text-gray-300" />
+                      <YAxis stroke="#000" tick={{fill: 'currentColor'}} className="text-black dark:text-gray-300" tickFormatter={(v) => `R$${v}`} />
+                      <Tooltip formatter={(v) => `R$ ${v.toFixed(2)}`} contentStyle={{backgroundColor: '#374151', color: '#fff', border: 'none'}} />
+                      <Legend />
+                      <Bar dataKey="income" fill="#22c55e" name="Receitas" />
+                      <Bar dataKey="expenses" fill="#ef4444" name="Despesas" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : <p className="text-center py-20 text-black dark:text-gray-400">Sem dados.</p>}
+              </div>
+              <div className="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+                <h3 className="text-lg font-semibold mb-4 text-black dark:text-white">Despesas por Categoria</h3>
+                {!hasCharts ? <ChartError /> : pieChartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie data={pieChartData} cx="50%" cy="50%" outerRadius={80} fill="#8884d8" dataKey="value" nameKey="name">
+                        {pieChartData.map((e, i) => <Cell key={`cell-${i}`} fill={COLORS[i % COLORS.length]} />)}
+                      </Pie>
+                      <Tooltip formatter={(v) => `R$ ${v.toFixed(2)}`} contentStyle={{backgroundColor: '#374151', color: '#fff', border: 'none'}} />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : <p className="text-center py-20 text-black dark:text-gray-400">Sem despesas.</p>}
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      const TransactionFormModal = ({ isOpen, onClose, onSubmit, transaction, type, categories }) => {
+        const [amount, setAmount] = useState('');
+        const [category, setCategory] = useState(categories[0]);
+        const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+        const [notes, setNotes] = useState('');
+
+        useEffect(() => {
+          if (isOpen) {
+             if (transaction) {
+                setAmount(String(transaction.amount));
+                setCategory(transaction.category);
+                setDate(transaction.date.split('T')[0]);
+                setNotes(transaction.notes || '');
+             } else {
+                setAmount('');
+                setCategory(categories[0]);
+                setDate(new Date().toISOString().split('T')[0]);
+                setNotes('');
+             }
+          }
+        }, [isOpen, transaction, categories]);
+
+        const handleSubmit = (e) => {
+            e.preventDefault();
+            const val = parseFloat(amount);
+            if (!val || val <= 0) return alert('Valor inválido');
+            onSubmit({
+                id: transaction ? transaction.id : Date.now().toString(),
+                type,
+                amount: val,
+                category,
+                date: new Date(date).toISOString(),
+                notes
+            });
+        };
+
+        if (!isOpen) return null;
+        return (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
+             <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-md">
+                <div className="p-4 border-b dark:border-gray-700"><h2 className="text-xl font-bold text-black dark:text-white">{transaction ? 'Editar' : 'Nova'} {type === 'income' ? 'Receita' : 'Despesa'}</h2></div>
+                <form onSubmit={handleSubmit} className="p-4 space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-black dark:text-gray-200">Valor</label>
+                        <input type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} className="w-full p-2 border rounded text-black dark:bg-gray-700 dark:text-white" required />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-black dark:text-gray-200">Categoria</label>
+                        <select value={category} onChange={e => setCategory(e.target.value)} className="w-full p-2 border rounded text-black dark:bg-gray-700 dark:text-white">
+                            {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-black dark:text-gray-200">Data</label>
+                        <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full p-2 border rounded text-black dark:bg-gray-700 dark:text-white" required />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-black dark:text-gray-200">Obs</label>
+                        <textarea value={notes} onChange={e => setNotes(e.target.value)} className="w-full p-2 border rounded text-black dark:bg-gray-700 dark:text-white"></textarea>
+                    </div>
+                    <div className="flex justify-end space-x-2 pt-2">
+                        <button type="button" onClick={onClose} className="px-4 py-2 border rounded text-black dark:text-white">Cancelar</button>
+                        <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">Salvar</button>
+                    </div>
+                </form>
+             </div>
+          </div>
+        );
+      };
+
+      const TransactionsList = ({ title, transactions, onEdit, onDelete }) => {
+        const sorted = [...transactions].sort((a, b) => new Date(b.date) - new Date(a.date));
+        return (
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden pb-20">
+                {sorted.length > 0 ? (
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                            <thead className="bg-gray-50 dark:bg-gray-700">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-black dark:text-gray-200 uppercase">Data</th>
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-black dark:text-gray-200 uppercase">Categoria</th>
+                                    <th className="px-6 py-3 text-left text-xs font-bold text-black dark:text-gray-200 uppercase">Valor</th>
+                                    <th className="px-6 py-3"></th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                                {sorted.map(t => (
+                                    <tr key={t.id}>
+                                        <td className="px-6 py-4 text-sm text-black dark:text-gray-300">{new Date(t.date).toLocaleDateString('pt-BR')}</td>
+                                        <td className="px-6 py-4 text-sm font-medium text-black dark:text-white">{t.category}</td>
+                                        <td className={`px-6 py-4 text-sm font-bold ${t.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(t.amount)}
+                                        </td>
+                                        <td className="px-6 py-4 text-right">
+                                            <button onClick={() => onEdit(t)} className="text-blue-600 mr-3"><PencilIcon className="w-5 h-5"/></button>
+                                            <button onClick={() => onDelete(t.id)} className="text-red-600"><TrashIcon className="w-5 h-5"/></button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                ) : <div className="p-6 text-center text-black dark:text-gray-400">Nenhuma transação.</div>}
+            </div>
+        );
+      };
+
+      const App = () => {
+        const [transactions, setTransactions] = useLocalStorage('transactions', []);
+        const [currentView, setCurrentView] = useState('dashboard');
+        const [isModalOpen, setIsModalOpen] = useState(false);
+        const [editingTransaction, setEditingTransaction] = useState(null);
+        const [modalType, setModalType] = useState('income');
+        
+        // Filtros
+        const [platformFilter, setPlatformFilter] = useState('all');
+        const today = new Date();
+        const [startDate, setStartDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0]);
+        const [endDate, setEndDate] = useState(new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0]);
+
+        const filteredTransactions = useMemo(() => {
+            return transactions.filter(t => {
+                if (platformFilter !== 'all' && t.type === 'income' && t.category !== platformFilter) return false;
+                const d = t.date.split('T')[0];
+                return d >= startDate && d <= endDate;
+            });
+        }, [transactions, platformFilter, startDate, endDate]);
+
+        const handleSave = (t) => {
+            if (editingTransaction) setTransactions(transactions.map(tr => tr.id === t.id ? t : tr));
+            else setTransactions([...transactions, t]);
+            setIsModalOpen(false);
+            setEditingTransaction(null);
+        };
+        
+        const handleDelete = (id) => setTransactions(transactions.filter(t => t.id !== id));
+
+        const openModal = (type, t = null) => {
+            setModalType(type);
+            setEditingTransaction(t);
+            setIsModalOpen(true);
+        };
+
+        const renderContent = () => {
+            const income = filteredTransactions.filter(t => t.type === 'income');
+            const expense = filteredTransactions.filter(t => t.type === 'expense');
+            if (currentView === 'dashboard') return <Dashboard transactions={filteredTransactions} />;
+            if (currentView === 'income') return <TransactionsList title="Receitas" transactions={income} onEdit={(t) => openModal('income', t)} onDelete={handleDelete} />;
+            return <TransactionsList title="Despesas" transactions={expense} onEdit={(t) => openModal('expense', t)} onDelete={handleDelete} />;
+        };
+        
+        const viewTitle = {dashboard: 'Painel', income: 'Receitas', expenses: 'Despesas'}[currentView];
+
+        return (
+          <div className="flex h-screen bg-gray-100 dark:bg-gray-900 text-black dark:text-gray-100">
+            <Sidebar currentView={currentView} setCurrentView={setCurrentView} />
+            <div className="flex-1 flex flex-col overflow-hidden relative">
+                <Header 
+                    title={viewTitle} 
+                    onAddIncome={() => openModal('income')} 
+                    onAddExpense={() => openModal('expense')}
+                    platformFilter={platformFilter} onPlatformFilterChange={setPlatformFilter}
+                    startDate={startDate} onStartDateChange={setStartDate}
+                    endDate={endDate} onEndDateChange={setEndDate}
+                    onClearFilters={() => { setPlatformFilter('all'); setStartDate(new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0]); setEndDate(new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0]); }}
+                />
+                <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 bg-gray-100 dark:bg-gray-900">
+                    {renderContent()}
+                </main>
+                <BottomNav currentView={currentView} setCurrentView={setCurrentView} />
+            </div>
+            <TransactionFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={handleSave} transaction={editingTransaction} type={modalType} categories={modalType === 'income' ? INCOME_SOURCES : EXPENSE_CATEGORIES} />
+          </div>
+        );
+      };
+
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(<App />);
+    </script>
+
+    <!-- Ativação do Service Worker -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/service-worker.js')
+            .then(reg => console.log('SW registrado', reg))
+            .catch(err => console.log('SW falhou', err));
+        });
+      }
+    </script>
+</body>
+</html>
